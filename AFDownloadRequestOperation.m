@@ -85,19 +85,16 @@ typedef void (^AFURLConnectionProgressiveOperationProgressBlock)(AFDownloadReque
             _targetPath = targetPath;
         }
 
-        // Download is saved into a temorary file and renamed upon completion.
-        NSString *tempPath = [self tempPath];
-
         // Do we need to resume the file?
         BOOL isResuming = [self updateByteStartRangeForRequest];
         
         // Try to create/open a file at the target location
         if (!isResuming) {
-            int fileDescriptor = open([tempPath UTF8String], O_CREAT | O_EXCL | O_RDWR, 0666);
+            int fileDescriptor = open([_targetPath UTF8String], O_CREAT | O_EXCL | O_RDWR, 0666);
             if (fileDescriptor > 0) close(fileDescriptor);
         }
 
-        self.outputStream = [NSOutputStream outputStreamToFileAtPath:tempPath append:isResuming];
+        self.outputStream = [NSOutputStream outputStreamToFileAtPath:_targetPath append:isResuming];
         // If the output stream can't be created, instantly destroy the object.
         if (!self.outputStream) return nil;
         
@@ -228,7 +225,7 @@ typedef void (^AFURLConnectionProgressiveOperationProgressBlock)(AFDownloadReque
                 if (self.shouldOverwrite) {
                     [fileManager removeItemAtPath:_targetPath error:NULL]; // avoid "File exists" error
                 }
-                [fileManager moveItemAtPath:[self tempPath] toPath:_targetPath error:&localError];
+                
                 if (localError) {
                     _fileError = localError;
                 } else {
@@ -276,16 +273,16 @@ typedef void (^AFURLConnectionProgressiveOperationProgressBlock)(AFDownloadReque
     
     // Truncate cache file to offset provided by server.
     // Using self.outputStream setProperty:@(_offsetContentLength) forKey:NSStreamFileCurrentOffsetKey]; will not work (in contrary to the documentation)
-    NSString *tempPath = [self tempPath];
-    if ([self fileSizeForPath:tempPath] != _offsetContentLength) {
+    
+    if ([self fileSizeForPath:_targetPath] != _offsetContentLength) {
         [self.outputStream close];
         BOOL isResuming = _offsetContentLength > 0;
         if (isResuming) {
-            NSFileHandle *file = [NSFileHandle fileHandleForWritingAtPath:tempPath];
+            NSFileHandle *file = [NSFileHandle fileHandleForWritingAtPath:_targetPath];
             [file truncateFileAtOffset:_offsetContentLength];
             [file closeFile];
         }
-        self.outputStream = [NSOutputStream outputStreamToFileAtPath:tempPath append:isResuming];
+        self.outputStream = [NSOutputStream outputStreamToFileAtPath:_targetPath append:isResuming];
         [self.outputStream open];
     }
 }
